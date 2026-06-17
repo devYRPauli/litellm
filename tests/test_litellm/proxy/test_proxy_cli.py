@@ -1329,6 +1329,35 @@ class TestProxyInitializationHelpers:
         assert captured["options"]["max_requests"] == 1000
         assert captured["options"]["max_requests_jitter"] == 50
 
+    @pytest.mark.skipif(os.name == "nt", reason="gunicorn server path skips Windows")
+    def test_gunicorn_jitter_without_base_warns(self):
+        """gunicorn path warns when jitter is set without --max_requests_before_restart"""
+        pytest.importorskip("gunicorn")
+
+        captured: dict = {}
+
+        def capture_run(self):
+            captured["options"] = dict(self.options)
+
+        with (
+            patch("gunicorn.app.base.BaseApplication.run", capture_run),
+            patch("builtins.print") as mock_print,
+        ):
+            ProxyInitializationHelpers._run_gunicorn_server(
+                host="127.0.0.1",
+                port=4011,
+                app=MagicMock(),
+                num_workers=2,
+                ssl_certfile_path=None,
+                ssl_keyfile_path=None,
+                max_requests_before_restart=None,
+                max_requests_before_restart_jitter=50,
+            )
+
+        assert "max_requests" not in captured["options"]
+        assert captured["options"]["max_requests_jitter"] == 50
+        assert any("has no effect" in str(c) for c in mock_print.call_args_list)
+
     def test_apply_uvicorn_jitter_sets_arg_when_supported(self):
         class _NewUvicornConfig:
             def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
