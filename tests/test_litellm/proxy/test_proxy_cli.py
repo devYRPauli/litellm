@@ -1189,6 +1189,10 @@ class TestProxyInitializationHelpers:
 
         from litellm.proxy.proxy_cli import run_server
 
+        class _NewUvicornConfig:
+            def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
+                pass
+
         runner = CliRunner()
         clean_env = {
             k: v
@@ -1197,6 +1201,7 @@ class TestProxyInitializationHelpers:
         }
         with (
             patch.dict(os.environ, clean_env, clear=True),
+            patch("uvicorn.Config", _NewUvicornConfig),
             patch.dict(
                 "sys.modules",
                 {
@@ -1325,12 +1330,17 @@ class TestProxyInitializationHelpers:
         assert captured["options"]["max_requests_jitter"] == 50
 
     def test_apply_uvicorn_jitter_sets_arg_when_supported(self):
+        class _NewUvicornConfig:
+            def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
+                pass
+
         uvicorn_args: dict = {}
-        ProxyInitializationHelpers._apply_uvicorn_max_requests_jitter(
-            uvicorn_args=uvicorn_args,
-            max_requests_before_restart=1000,
-            jitter=50,
-        )
+        with patch("uvicorn.Config", _NewUvicornConfig):
+            ProxyInitializationHelpers._apply_uvicorn_max_requests_jitter(
+                uvicorn_args=uvicorn_args,
+                max_requests_before_restart=1000,
+                jitter=50,
+            )
         assert uvicorn_args["limit_max_requests_jitter"] == 50
 
     def test_apply_uvicorn_jitter_skipped_on_old_uvicorn(self):
@@ -1353,8 +1363,15 @@ class TestProxyInitializationHelpers:
         assert any("0.41.0" in str(c) for c in mock_print.call_args_list)
 
     def test_apply_uvicorn_jitter_without_base_warns(self):
+        class _NewUvicornConfig:
+            def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
+                pass
+
         uvicorn_args: dict = {}
-        with patch("builtins.print") as mock_print:
+        with (
+            patch("uvicorn.Config", _NewUvicornConfig),
+            patch("builtins.print") as mock_print,
+        ):
             ProxyInitializationHelpers._apply_uvicorn_max_requests_jitter(
                 uvicorn_args=uvicorn_args,
                 max_requests_before_restart=None,
