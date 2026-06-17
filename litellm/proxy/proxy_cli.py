@@ -908,7 +908,7 @@ def run_server(
     keepalive_timeout,
     timeout_worker_healthcheck,
     max_requests_before_restart,
-    max_requests_before_restart_jitter,
+    max_requests_before_restart_jitter: Optional[int],
     enforce_prisma_migration_check: bool,
     use_v2_migration_resolver: bool,
     reload: bool,
